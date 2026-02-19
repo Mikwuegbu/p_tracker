@@ -1,9 +1,10 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { ProjectsProvider } from '../src/context/ProjectsContext';
 
 export default function RootLayout() {
 	return (
-		<>
+		<ProjectsProvider>
 			<Stack
 				screenOptions={{
 					headerStyle: {
@@ -32,8 +33,16 @@ export default function RootLayout() {
 						headerBackTitle: 'Back',
 					}}
 				/>
+				<Stack.Screen
+					name="new-project"
+					options={{
+						title: 'New Project',
+						headerBackTitle: 'Cancel',
+						presentation: 'modal',
+					}}
+				/>
 			</Stack>
 			<StatusBar style="dark" />
-		</>
+		</ProjectsProvider>
 	);
 }

@@ -7,6 +7,8 @@ const DELAY = 1000;
 // Internal state to persist changes during the session
 let projects = [...MOCK_PROJECTS];
 
+type NewProjectPayload = Omit<Project, 'id'>;
+
 export const projectApi = {
 	getProjects: async (): Promise<Project[]> => {
 		return new Promise((resolve, reject) => {
@@ -37,6 +39,19 @@ export const projectApi = {
 				const updatedProject = { ...projects[index], status };
 				projects[index] = updatedProject;
 				resolve(updatedProject);
+			}, DELAY);
+		});
+	},
+
+	addProject: async (payload: NewProjectPayload): Promise<Project> => {
+		return new Promise((resolve) => {
+			setTimeout(() => {
+				const newProject: Project = {
+					...payload,
+					id: String(Date.now()),
+				};
+				projects = [newProject, ...projects];
+				resolve(newProject);
 			}, DELAY);
 		});
 	},

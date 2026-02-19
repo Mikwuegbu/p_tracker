@@ -1,4 +1,5 @@
-import { Filter, Search, X } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { Filter, Plus, Search, X } from 'lucide-react-native';
 import { useState } from 'react';
 import {
 	ActivityIndicator,
@@ -13,7 +14,7 @@ import {
 import { EmptyState } from '../src/components/EmptyState';
 import { ErrorMessage } from '../src/components/ErrorMessage';
 import { ProjectCard } from '../src/components/ProjectCard';
-import { useProjects } from '../src/hooks/useProjects';
+import { useProjectsContext } from '../src/context/ProjectsContext';
 import { ProjectStatus } from '../src/types/project';
 
 const STATUS_OPTIONS: (ProjectStatus | 'all')[] = [
@@ -24,6 +25,7 @@ const STATUS_OPTIONS: (ProjectStatus | 'all')[] = [
 ];
 
 export default function ProjectListScreen() {
+	const router = useRouter();
 	const {
 		projects,
 		allProjects,
@@ -35,7 +37,7 @@ export default function ProjectListScreen() {
 		statusFilter,
 		setStatusFilter,
 		refresh,
-	} = useProjects();
+	} = useProjectsContext();
 
 	const [showFilters, setShowFilters] = useState(false);
 
@@ -47,7 +49,7 @@ export default function ProjectListScreen() {
 		);
 	}
 
-	if (error && projects.length === 0) {
+	if (error && allProjects.length === 0) {
 		return <ErrorMessage message={error} onRetry={refresh} />;
 	}
 
@@ -120,7 +122,8 @@ export default function ProjectListScreen() {
 					<RefreshControl
 						refreshing={refreshing}
 						onRefresh={refresh}
-						color="#1A73E8"
+						colors={['#1A73E8']}
+						tintColor="#1A73E8"
 					/>
 				}
 				ListEmptyComponent={
@@ -131,6 +134,17 @@ export default function ProjectListScreen() {
 					)
 				}
 			/>
+
+			{/* Floating Action Button */}
+			<TouchableOpacity
+				style={styles.fab}
+				onPress={() => router.push('/new-project')}
+				activeOpacity={0.85}
+				accessibilityRole="button"
+				accessibilityLabel="Add new project"
+			>
+				<Plus size={28} color="#FFFFFF" strokeWidth={2.5} />
+			</TouchableOpacity>
 		</View>
 	);
 }
@@ -212,5 +226,22 @@ const styles = StyleSheet.create({
 	},
 	listContent: {
 		paddingVertical: 8,
+		paddingBottom: 96, // leave room above FAB
+	},
+	fab: {
+		position: 'absolute',
+		bottom: 28,
+		right: 24,
+		width: 60,
+		height: 60,
+		borderRadius: 30,
+		backgroundColor: '#1A73E8',
+		alignItems: 'center',
+		justifyContent: 'center',
+		shadowColor: '#1A73E8',
+		shadowOffset: { width: 0, height: 4 },
+		shadowOpacity: 0.4,
+		shadowRadius: 8,
+		elevation: 8,
 	},
 });

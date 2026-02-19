@@ -1,4 +1,4 @@
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import {
 	Calendar,
 	CheckCircle2,
@@ -6,7 +6,7 @@ import {
 	PauseCircle,
 	User,
 } from 'lucide-react-native';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
 	ActivityIndicator,
 	Alert,
@@ -18,13 +18,13 @@ import {
 } from 'react-native';
 import { ErrorMessage } from '../../src/components/ErrorMessage';
 import { StatusBadge } from '../../src/components/StatusBadge';
-import { useProjects } from '../../src/hooks/useProjects';
+import { useProjectsContext } from '../../src/context/ProjectsContext';
 import { ProjectStatus } from '../../src/types/project';
 
 const STATUS_OPTIONS: {
 	value: ProjectStatus;
 	label: string;
-	Icon: any;
+	Icon: React.ComponentType<{ size: number; color: string }>;
 	color: string;
 }[] = [
 	{ value: 'active', label: 'Active', Icon: CheckCircle2, color: '#1E8E3E' },
@@ -33,9 +33,12 @@ const STATUS_OPTIONS: {
 ];
 
 export default function ProjectDetailScreen() {
-	const { id } = useLocalSearchParams();
-	const router = useRouter();
-	const { allProjects, loading, updateProjectStatus, refresh } = useProjects();
+	const { id } = useLocalSearchParams<{ id: string }>();
+	const { allProjects, loading, updateProjectStatus, refresh } =
+		useProjectsContext();
+
+	// Local state for the status-update loading indicator
+	const [updating, setUpdating] = useState(false);
 
 	const project = useMemo(
 		() => allProjects.find((p) => p.id === id),
@@ -46,14 +49,17 @@ export default function ProjectDetailScreen() {
 		if (!project) return;
 		if (project.status === newStatus) return;
 
+		setUpdating(true);
 		try {
 			await updateProjectStatus(project.id, newStatus);
 			Alert.alert(
-				'Success',
-				`Project status updated to ${newStatus.replace('_', ' ')}`,
+				'Status Updated',
+				`"${project.name}" is now ${newStatus.replace('_', ' ')}.`,
 			);
-		} catch (err) {
+		} catch {
 			Alert.alert('Error', 'Failed to update status. Please try again.');
+		} finally {
+			setUpdating(false);
 		}
 	};
 
@@ -66,23 +72,26 @@ export default function ProjectDetailScreen() {
 	}
 
 	if (!project) {
-		return <ErrorMessage message="Project not found" onRetry={refresh} />;
+		return <ErrorMessage message="Project not found." onRetry={refresh} />;
 	}
 
 	return (
 		<ScrollView style={styles.container} contentContainerStyle={styles.content}>
+			{/* Dynamically update the header title to the project name */}
 			<Stack.Screen options={{ title: project.name }} />
 
-			{/* Header Section */}
+			{/* Header Card */}
 			<View style={styles.card}>
-				<View style={styles.header}>
+				<View style={styles.cardHeader}>
 					<Text style={styles.name}>{project.name}</Text>
 					<StatusBadge status={project.status} />
 				</View>
-				<Text style={styles.description}>{project.description}</Text>
+				{project.description ? (
+					<Text style={styles.description}>{project.description}</Text>
+				) : null}
 			</View>
 
-			{/* Details Section */}
+			{/* Details Card */}
 			<View style={styles.card}>
 				<Text style={styles.sectionTitle}>Details</Text>
 
@@ -102,7 +111,7 @@ export default function ProjectDetailScreen() {
 					</View>
 				</View>
 
-				{project.endDate && (
+				{project.endDate ? (
 					<View style={styles.detailRow}>
 						<Calendar size={20} color="#5F6368" />
 						<View style={styles.detailTextContainer}>
@@ -110,43 +119,56 @@ export default function ProjectDetailScreen() {
 							<Text style={styles.detailValue}>{project.endDate}</Text>
 						</View>
 					</View>
-				)}
+				) : null}
 			</View>
 
-			{/* Status Update Section */}
+			{/* Status Update Card */}
 			<View style={styles.card}>
 				<Text style={styles.sectionTitle}>Update Status</Text>
-				<View style={styles.statusGrid}>
-					{STATUS_OPTIONS.map((option) => {
-						const isActive = project.status === option.value;
-						return (
-							<TouchableOpacity
-								key={option.value}
-								style={[
-									styles.statusButton,
-									isActive && {
-										borderColor: option.color,
-										backgroundColor: option.color + '10',
-									},
-								]}
-								onPress={() => handleUpdateStatus(option.value)}
-							>
-								<option.Icon
-									size={24}
-									color={isActive ? option.color : '#5F6368'}
-								/>
-								<Text
+
+				{/* Overlay spinner while update is in-flight */}
+				{updating ? (
+					<View style={styles.updatingContainer}>
+						<ActivityIndicator size="small" color="#1A73E8" />
+						<Text style={styles.updatingText}>Updating…</Text>
+					</View>
+				) : (
+					<View style={styles.statusGrid}>
+						{STATUS_OPTIONS.map((option) => {
+							const isActive = project.status === option.value;
+							return (
+								<TouchableOpacity
+									key={option.value}
 									style={[
-										styles.statusButtonText,
-										isActive && { color: option.color, fontWeight: '700' },
+										styles.statusButton,
+										isActive && {
+											borderColor: option.color,
+											backgroundColor: option.color + '15',
+										},
 									]}
+									onPress={() => handleUpdateStatus(option.value)}
+									disabled={isActive}
+									accessibilityRole="button"
+									accessibilityLabel={`Set status to ${option.label}`}
+									accessibilityState={{ selected: isActive }}
 								>
-									{option.label}
-								</Text>
-							</TouchableOpacity>
-						);
-					})}
-				</View>
+									<option.Icon
+										size={24}
+										color={isActive ? option.color : '#5F6368'}
+									/>
+									<Text
+										style={[
+											styles.statusButtonText,
+											isActive && { color: option.color, fontWeight: '700' },
+										]}
+									>
+										{option.label}
+									</Text>
+								</TouchableOpacity>
+							);
+						})}
+					</View>
+				)}
 			</View>
 		</ScrollView>
 	);
@@ -176,7 +198,7 @@ const styles = StyleSheet.create({
 		shadowRadius: 4,
 		elevation: 1,
 	},
-	header: {
+	cardHeader: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'flex-start',
@@ -184,18 +206,18 @@ const styles = StyleSheet.create({
 		gap: 12,
 	},
 	name: {
-		fontSize: 24,
+		fontSize: 22,
 		fontWeight: '700',
 		color: '#202124',
 		flex: 1,
 	},
 	description: {
-		fontSize: 16,
+		fontSize: 15,
 		color: '#3C4043',
-		lineHeight: 24,
+		lineHeight: 22,
 	},
 	sectionTitle: {
-		fontSize: 18,
+		fontSize: 17,
 		fontWeight: '700',
 		color: '#202124',
 		marginBottom: 16,
@@ -210,7 +232,7 @@ const styles = StyleSheet.create({
 		flex: 1,
 	},
 	detailLabel: {
-		fontSize: 12,
+		fontSize: 11,
 		color: '#5F6368',
 		textTransform: 'uppercase',
 		letterSpacing: 0.5,
@@ -221,9 +243,21 @@ const styles = StyleSheet.create({
 		fontWeight: '500',
 		color: '#202124',
 	},
+	updatingContainer: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		paddingVertical: 20,
+		gap: 10,
+	},
+	updatingText: {
+		fontSize: 15,
+		color: '#1A73E8',
+		fontWeight: '500',
+	},
 	statusGrid: {
 		flexDirection: 'row',
-		gap: 12,
+		gap: 10,
 	},
 	statusButton: {
 		flex: 1,
@@ -233,11 +267,12 @@ const styles = StyleSheet.create({
 		borderRadius: 12,
 		borderWidth: 2,
 		borderColor: '#F1F3F4',
-		gap: 8,
+		gap: 6,
 	},
 	statusButtonText: {
-		fontSize: 13,
+		fontSize: 12,
 		color: '#5F6368',
 		fontWeight: '500',
+		textAlign: 'center',
 	},
 });
