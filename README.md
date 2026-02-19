@@ -71,9 +71,3 @@ p_tracker/
 ```
 
 ---
-
----
-
-## AI Usage Disclosure
-
-**Tool used**: Antigravity
